@@ -11,8 +11,8 @@ def login():
                'X-CSRFToken': None}
     login_url = 'https://www.shanbay.com/api/v1/account/login/web/'
     s = requests.session()
-    login_data = {'username': 'luokekela',
-              'password': 'keepmoving',}
+    login_data = {'username': '...',
+              'password': '...',}
     try:
         s.put(login_url, data=login_data, headers=headers)
         return s
