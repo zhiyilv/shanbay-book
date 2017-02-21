@@ -5,19 +5,44 @@ import os
 import json
 
 
+# def show_cookies(s):
+#     for i in s.cookies.keys():
+#         print(i+': '+s.cookies[i])
+#
+#
+# def login():
+#     s = requests.session()
+#     s.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' \
+#                               'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'
+#     s.get('https://www.shanbay.com/web/account/login')
+#
+#     headers = {'Origin': 'https://www.shanbay.com',
+#                'X-CSRFToken': None,
+#                'Content-type': 'application/json;charset=UTF-8',
+#                'Referer': 'https://www.shanbay.com/web/account/login',
+#                }
+#     login_url = 'https://www.shanbay.com/api/v1/account/login/web/'
+#     login_data = {'username': '...',
+#               'password': '...',}
+#     try:
+#         r = s.put(login_url, data=login_data, headers=headers)
+#         print(r.status_code)
+#         return s
+#     except requests.exceptions.RequestException as e:
+#         print(e)
+
 def login():
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64)'
-                         ' AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36',
-               'X-CSRFToken': None}
-    login_url = 'https://www.shanbay.com/api/v1/account/login/web/'
     s = requests.session()
+    s.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' \
+                              'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'
+    login_url = "https://www.shanbay.com/accounts/login/"
+    cookie = {"csrftoken": "mSllTTIzI8DlIdbDyH40T08dxIOBFlKF"}
     login_data = {'username': '...',
-              'password': '...',}
-    try:
-        s.put(login_url, data=login_data, headers=headers)
-        return s
-    except requests.exceptions.RequestException as e:
-        print(e)
+                  'password': '...',
+                  'csrfmiddlewaretoken': 'mSllTTIzI8DlIdbDyH40T08dxIOBFlKF'}
+    r = s.post(login_url, data=login_data, cookies=cookie, allow_redirects=False)
+    print(r.status_code)
+    return s
 
 
 def get_wordlists(book_id, shanbay_session=None, require_description=False):
