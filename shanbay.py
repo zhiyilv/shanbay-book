@@ -3,6 +3,7 @@ import re
 import sys
 import os
 import json
+from selenium import webdriver
 
 
 # def show_cookies(s):
@@ -16,14 +17,14 @@ import json
 #                               'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'
 #     s.get('https://www.shanbay.com/web/account/login')
 #
-#     headers = {'Origin': 'https://www.shanbay.com',
-#                'X-CSRFToken': None,
-#                'Content-type': 'application/json;charset=UTF-8',
-#                'Referer': 'https://www.shanbay.com/web/account/login',
-#                }
-#     login_url = 'https://www.shanbay.com/api/v1/account/login/web/'
-#     login_data = {'username': '...',
-#               'password': '...',}
+    # headers = {'Origin': 'https://www.shanbay.com',
+    #            'X-CSRFToken': None,
+    #            'Content-type': 'application/json;charset=UTF-8',
+    #            'Referer': 'https://www.shanbay.com/web/account/login',
+    #            }
+    # login_url = 'https://www.shanbay.com/api/v1/account/login/web/'
+    # login_data = {'username': '...',
+    #           'password': '...',}
 #     try:
 #         r = s.put(login_url, data=login_data, headers=headers)
 #         print(r.status_code)
@@ -31,18 +32,27 @@ import json
 #     except requests.exceptions.RequestException as e:
 #         print(e)
 
+# def login():
+#     s = requests.session()
+#     s.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' \
+#                               'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'
+#     login_url = "https://www.shanbay.com/accounts/login/"
+#     cookie = {"csrftoken": "mSllTTIzI8DlIdbDyH40T08dxIOBFlKF"}
+#     login_data = {'username': '...',
+#                   'password': '...',
+#                   'csrfmiddlewaretoken': 'mSllTTIzI8DlIdbDyH40T08dxIOBFlKF'}
+#     r = s.post(login_url, data=login_data, cookies=cookie, allow_redirects=False)
+#     print(r.status_code)
+#     return s
+
+
 def login():
-    s = requests.session()
-    s.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' \
-                              'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'
-    login_url = "https://www.shanbay.com/accounts/login/"
-    cookie = {"csrftoken": "mSllTTIzI8DlIdbDyH40T08dxIOBFlKF"}
-    login_data = {'username': '...',
-                  'password': '...',
-                  'csrfmiddlewaretoken': 'mSllTTIzI8DlIdbDyH40T08dxIOBFlKF'}
-    r = s.post(login_url, data=login_data, cookies=cookie, allow_redirects=False)
-    print(r.status_code)
-    return s
+    cl = webdriver.Chrome()
+    cl.get('https://www.shanbay.com/web/account/login/')
+    cl.find_element_by_name('username').send_keys('...')
+    cl.find_element_by_name('password').send_keys('...')
+    cl.find_element_by_css_selector('button.login-button').click()
+    return cl.get_cookies()
 
 
 def get_wordlists(book_id, shanbay_session=None, require_description=False):
