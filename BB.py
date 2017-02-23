@@ -4,7 +4,6 @@ import sys
 import json
 import os
 import myparser
-import enchant
 
 
 # get details from imdb
@@ -16,16 +15,17 @@ season_length = len(episode_title)
 # create wordlists
 connection = shanbay.login()
 book_id = 174418
-for i in range(season_length):
-    t = 'S{}E'.format(season) + str(i+1).zfill(2) + '. ' + episode_title[i]
-    shanbay.create_list(book_id, t, episode_description[i], connection)
-
-# verify all lists created successfully
 wordlist_ids, _, _ = shanbay.get_wordlists(book_id, connection)
 if len(wordlist_ids) != season_length:
-    print('XXXXXXXXXXXXXXXXXXXX')
-    print('Something goes wrong. Manually have a check.')
-    sys.exit(-1)
+    for i in range(season_length):
+        t = 'S{}E'.format(season) + str(i+1).zfill(2) + '. ' + episode_title[i]
+        shanbay.create_list(book_id, t, episode_description[i], connection)
+    # verify all lists created successfully
+    wordlist_ids, _, _ = shanbay.get_wordlists(book_id, connection)
+    if len(wordlist_ids) != season_length:
+        print('XXXXXXXXXXXXXXXXXXXX')
+        print('Something goes wrong. Manually have a check.')
+        sys.exit(-1)
 
 # get obsolete words
 obsolete = []
@@ -34,6 +34,13 @@ for d in os.listdir(exclusion_path):
     with open(os.path.join(exclusion_path, d), 'r') as f:
         obsolete += json.load(f)
 obsolete = set(obsolete)
+# # get manually excluded words
+# if 'manual_exclude.json' in os.listdir('.\\'):
+#     with open('.\manual_exclude.json', 'r') as f:
+#         manual_exclude = json.load(f)
+#         manual_exclude = set(manual_exclude)
+# else:
+#     manual_exclude = set()
 
 # get folder path
 d_info_path = os.path.join(os.environ['LOCALAPPDATA'], 'Dropbox\info.json')
@@ -41,34 +48,22 @@ with open(d_info_path, 'r') as f:
     d_info = json.load(f)
 # get words from subtitle files
 folder_path = os.path.join(d_info['personal']['path'], 'Others\\Subtitles\\Breaking Bad\\S2')
+
+total = set()
 for i in range(1, season_length+1):
     file_path = os.path.join(folder_path, 'Breaking.Bad.S02E'+str(i).zfill(2)+'.720p.Bluray-clue.ass')
-    temp = myparser.get_words_from_ass(file_path)
+    temp, _ = myparser.get_words_from_ass_2(file_path)
+    temp -= obsolete
+    temp -= total
+    # temp -= manual_exclude
+    for w in temp:
+        shanbay.add_word(wordlist_id=wordlist_ids[i-1], word=w, s=connection)
+    total = total.union(temp)
 
+# store book
+book_name = '绝命毒师 第二季.json'
+book_path = '.\\Books\\'
 
-
-
-# main operations
-full = []
-obsolete = []
-count = 0
-total = 0
-for file_name in file_list:
-    count = 0
-    print('These are words form \n'+file_name)
-    current = get_words_from_ass(os.path.join(file_path, file_name))
-    for i in current:
-        if (i not in full) and (i not in obsolete):
-            if (i in lv4) or (i in lv6):
-                obsolete.append(i)
-            else:
-                full.append(i)
-                total += 1
-                count += 1
-                print(i+'      current ep {} and totally {}'.format(count, total))
-    print('======================================')
-    print('\n\n')
-
-
-
+with open(os.path.join(book_path, book_name), 'w') as f:
+    json.dump(list(total), f)
 
