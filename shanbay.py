@@ -25,8 +25,8 @@ def login():
     #            'Referer': 'https://www.shanbay.com/web/account/login',
     #            }
     login_url = 'https://www.shanbay.com/api/v1/account/login/web/'
-    login_data = {'username': '...',
-              'password': '...',}
+    login_data = {'username': 'luokekela',
+              'password': 'keepmoving',}
     r = s.put(login_url, data=login_data)
     if r.status_code == 200:
         print('login successful')
