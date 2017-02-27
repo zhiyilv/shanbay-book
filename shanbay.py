@@ -25,8 +25,8 @@ def login():
     #            'Referer': 'https://www.shanbay.com/web/account/login',
     #            }
     login_url = 'https://www.shanbay.com/api/v1/account/login/web/'
-    login_data = {'username': 'luokekela',
-              'password': 'keepmoving',}
+    login_data = {'username': '...',
+              'password': '...',}
     r = s.put(login_url, data=login_data)
     if r.status_code == 200:
         print('login successful')
@@ -75,7 +75,7 @@ def get_wordlists(book_id, shanbay_session=None, require_description=False):
     return ids, titles, descriptions
 
 
-def get_book(book_id, s=None, local_path='D:\\Dropbox\\Python\\Words\\Books', url=None):
+def get_book(book_id, s=None, local_path='.\\Books', url=None):
     """
     given a url of book on shanbay.com, automatically save the book in format of json
     if the book exists locally, load it
@@ -190,6 +190,32 @@ def add_word(wordlist_id, word, s=None):
     except requests.exceptions.RequestException as e:
         print(e)
         return 0
+
+
+def get_dumb(book_id, local_total):
+    """
+    after manually deleting some words, compare the online version with local version
+    add those dumb words into the dumb file
+    :param book_id:
+    :param local_total: should be a set
+    :return:
+    """
+    dumb_path = '.\\Books\\Exclusion\\dumb.json'
+    if os.path.exists(dumb_path):
+        with open(dumb_path, 'r') as f:
+            dumb = json.load(f)
+            dumb = set(dumb)
+    else:
+        dumb = set()
+
+    _, _, v = get_book(book_id)
+    v = set(v)
+    dumb_ext = local_total - v
+    dumb = dumb.union(dumb_ext)
+
+    dumb = list(dumb)
+    with open(dumb_path, 'w') as f:
+        json.dump(dumb, f)
 
 
 
