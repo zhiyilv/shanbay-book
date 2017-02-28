@@ -10,8 +10,8 @@ book_name = '苍穹浩瀚 第一季 The Expanse Season 1'
 url_douban = 'https://movie.douban.com/subject/25926851/'
 url_imdb = 'http://www.imdb.com/title/tt3230854/episodes?season=1&ref_=tt_eps_sn_1'
 book_id = 175855
-shanbay_username = 'luokekela'
-shanbay_password = 'keepmoving'
+shanbay_username = '...'
+shanbay_password = '...'
 
 # get poster
 poster_path = '.\\Books\\{}'.format(book_name)
