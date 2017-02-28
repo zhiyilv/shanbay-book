@@ -11,7 +11,7 @@ import json
 #         print(i+': '+s.cookies[i])
 #
 
-def login():
+def login(usr=None, psw=None):
     s = requests.session()
     s.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' \
                               'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'
@@ -25,8 +25,8 @@ def login():
     #            'Referer': 'https://www.shanbay.com/web/account/login',
     #            }
     login_url = 'https://www.shanbay.com/api/v1/account/login/web/'
-    login_data = {'username': '...',
-              'password': '...',}
+    login_data = {'username': usr,
+              'password': psw,}
     r = s.put(login_url, data=login_data)
     if r.status_code == 200:
         print('login successful')
