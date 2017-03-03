@@ -192,12 +192,13 @@ def add_word(wordlist_id, word, s=None):
         return 0
 
 
-def get_dumb(book_id, local_total):
+def get_dumb(book_id, local_total, s=None):
     """
     after manually deleting some words, compare the online version with local version
     add those dumb words into the dumb file
     :param book_id:
-    :param local_total: should be a set
+    :param local_total:
+    :param s:
     :return:
     """
     dumb_path = '.\\Books\\Exclusion\\dumb.json'
@@ -208,14 +209,18 @@ def get_dumb(book_id, local_total):
     else:
         dumb = set()
 
-    _, _, v = get_book(book_id)
+    _, _, v = get_book(book_id, s=s)
     v = set(v)
+    print('There are {} words online'.format(len(v)))
     dumb_ext = local_total - v
+    print('Found {} words are dumb'.format(len(dumb_ext)))
+    print(dumb_ext)
     dumb = dumb.union(dumb_ext)
 
     dumb = list(dumb)
     with open(dumb_path, 'w') as f:
         json.dump(dumb, f)
+    print('Added them into local dumb words')
 
 
 
