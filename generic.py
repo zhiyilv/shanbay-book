@@ -6,27 +6,46 @@ import os
 import myparser
 
 
-# enter details, e.g. The expanse S1
-book_name = '苍穹浩瀚 第一季 The Expanse Season 1'
-url_douban = 'https://movie.douban.com/subject/25926851/'
-url_imdb = 'http://www.imdb.com/title/tt3230854/episodes?season=1&ref_=tt_eps_sn_1'
-subtitle_path = 'D:\Dropbox\Others\Subtitles\The Expanse\S01'
-subtitle_start = 'The.Expanse.S01E'  # for sorting subtitles
+# manually enter details here, or use initializations
+book_name = '大群 Legion'
+url_douban = 'https://movie.douban.com/subject/26641716/'
+url_imdb = 'http://www.imdb.com/title/tt5114356/episodes?season=1&ref_=tt_eps_sn_1'
+subtitle_path = 'D:\Dropbox\Others\Subtitles\Legion'
+subtitle_start = 'Legion.S01E'  # for sorting subtitles
 subtitle_codec = 'utf-8'
+book_id = 176434
 
-book_id = 175855
-shanbay_username = '...'
-shanbay_password = '...'
+# initialization, recommended
+if not book_name:
+    book_name = input('The book name is: ')
+if not url_douban:
+    url_douban = input('The url on douban.com is: ')
+if not url_imdb:
+    url_imdb = input('The url on imdb.com is: ')
+if not subtitle_path:
+    subtitle_path = input('Subtitles are stored at: ')
+if not subtitle_start:
+    sub=subtitle_start = input('All subtitles should be started with: ')
+if not subtitle_codec:
+    subtitle_codec = input('Subtitles are encoded with: ')
+if not book_id:
+    book_id = int(input('Word Book id on shanbay.com is: '))
+
+shanbay_username = input('Your shanbay username: ')
+shanbay_password = input('Your shanbay password: ')
 
 # get poster
-poster_path = '.\\Books\\{}'.format(book_name)
-if 'poster.jpg' not in os.listdir(poster_path):
-    imdb.get_poster(url_douban, poster_path)
+book_path = '.\\Books\\{}'.format(book_name)
+if not os.path.exists(book_path):
+    os.makedirs(book_path)
+if 'poster.jpg' not in os.listdir(book_path):
+    imdb.get_poster(url_douban, book_path)
 
 # get details of episodes
 season, episode_title, episode_description = imdb.get_titles_synopsis(url_imdb)
-season_length = len(episode_title)
 
+season_length = len(episode_title)
+season_length = 4
 # create wordlists
 connection = shanbay.login(shanbay_username, shanbay_password)
 wordlist_ids, _, _ = shanbay.get_wordlists(book_id, connection)
@@ -58,9 +77,8 @@ for i in range(1, season_length+1):
     temp, _ = myparser.get_words_from_ass_2(file_path, subtitle_codec)
     temp -= obsolete
     temp -= total
-    # temp -= manual_exclude
-    # for w in temp:
-    #     shanbay.add_word(wordlist_id=wordlist_ids[i-1], word=w, s=connection)
+    for w in temp:
+        shanbay.add_word(wordlist_id=wordlist_ids[i-1], word=w, s=connection)
     total = total.union(temp)
     print('added {} words into wordlist {}'.format(len(temp), episode_title[i-1]))
     print(temp)
