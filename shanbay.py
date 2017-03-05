@@ -157,6 +157,92 @@ def get_book(book_id, s=None, local_path='.\\Books', url=None):
     return book_name, list(zip(wordlist_ids, wordlist_titles, wordlist_descriptions)), vocabulary
 
 
+def get_book2(book_id, s=None, local_path='.\\Books', url=None):
+    """
+    given a url of book on shanbay.com, automatically save the book in format of json
+    if the book exists locally, load it
+    separate wordlists
+    :param book_id:
+    :param s:
+    :param local_path:
+    :param url:
+    :return: book name, word lists details, vocabulary
+    """
+
+    if not url:
+        url = 'https://www.shanbay.com/wordbook/{}/'.format(book_id)
+    if not s:
+        s = login()
+    print('Fetching book from shanbay.com...')
+    try:
+        book_page = s.get(url).text
+        url_local = url[url.find('.com')+4:]
+        book_name = re.findall(r'<div class="wordbook-title".*\n?\s*<a href="{}">(.*?)<'
+                               .format(url_local), book_page)
+        if not book_name:
+            print('Didn\'t find the book, check the url and try again')
+            sys.exit(-1)
+        book_name = book_name[0]
+        print('Book name:  ' + book_name)
+    except requests.exceptions.RequestException as e:
+        print(e)
+        sys.exit(0)
+
+    # book exists alreay
+    book_file = book_name + '.json'
+    if book_file in os.listdir(local_path):
+        print('It is already saved. Read from local file')
+        with open(os.path.join(local_path, book_file), 'r') as f:
+            v = json.load(f)
+            print('It contains {} wordlists.'.format(len(v)))
+            return book_name, None, v
+
+    # get book from shanbay
+    wordlist_ids, wordlist_titles, _ = get_wordlists(book_id, s)
+    print('\nThere are {} word lists:'.format(len(wordlist_ids)))
+    for i in wordlist_ids:
+        print(i)
+
+    print('\n-------main process----------')
+    vocabulary = []
+    wordlist_descriptions = []  # a list of [wordlist_title, wordlist_description]
+    for i in wordlist_ids:
+        wordlist = []
+        print('doing with wordlist {} ...'.format(i))
+        wordlist_url = 'https://www.shanbay.com/wordlist/{}/{}/'.format(book_id, i)
+        try:
+            wordlist_first_page = s.get(wordlist_url).text
+        except requests.exceptions.RequestException as e:
+            print(e)
+            sys.exit(1)
+
+        # wordlist_title = re.findall(r'<h4>\n?\s*"(.*?)\n', wordlist_first_page)
+        description = re.findall(r'wordlist-description-container">\n?\s*(.*?)\n\s*</div', wordlist_first_page)
+        if description:
+            wordlist_descriptions.append(description[0])
+        else:
+            wordlist_descriptions.append('')
+        wordlist += re.findall(r'<td class="span2"><strong>(.*?)</strong>', wordlist_first_page)
+
+        # deal with other subpages, avoid reading the pagination
+        for page_count in range(2, 1000):
+            url_update = wordlist_url + '?page={}'.format(page_count)
+            temp = re.findall(r'<td class="span2"><strong>(.*?)</strong>', s.get(url_update).text)
+            if temp:
+                wordlist += temp
+            else:
+                break
+        vocabulary.append(wordlist)
+        print('added {} words into the vocabulary\n'.format(len(wordlist)))
+
+    print('******finished**********')
+
+    # save the book
+    with open(os.path.join(local_path, book_file), 'w') as f:
+        json.dump(vocabulary, f)
+    return book_name, list(zip(wordlist_ids, wordlist_titles, wordlist_descriptions)), vocabulary
+
+
 def create_list(book_id, name, description, s=None):
     if not s:
         s = login()
