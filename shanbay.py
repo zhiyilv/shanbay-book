@@ -4,6 +4,7 @@ import sys
 import os
 import json
 import itertools
+from bs4 import BeautifulSoup as BS
 # from selenium import webdriver
 
 
@@ -26,6 +27,11 @@ def login(usr=None, psw=None):
     #            'Referer': 'https://www.shanbay.com/web/account/login',
     #            }
     login_url = 'https://www.shanbay.com/api/v1/account/login/web/'
+    if not usr:
+        usr = input('your user name: ')
+    if not psw:
+        psw = input('your password: ')
+
     login_data = {'username': usr,
               'password': psw,}
     r = s.put(login_url, data=login_data)
@@ -309,7 +315,7 @@ def add_word(wordlist_id, word, s=None):
 
 def get_dumb(book_name):
     """
-    make sure both online and local version of word book is store correctly
+    make sure both online and local version of word book is stored correctly
     :param book_name:
     :return:
     """
@@ -343,6 +349,83 @@ def update_dumb(dumb_ext):
     return dumb
 
 
+def fetch_book_by_id(book_id, s=None):
+    """
+    provide a book id, get the book from shanbay.com
+    separated by wordlists
+    :param book_id:
+    :param s:
+    :return: book(chapter separated), vocabulary(a set of words)
+    """
+    url = 'https://www.shanbay.com/wordbook/{}/'.format(book_id)
+    if not s:
+        s = login()
+
+    print('Fetching book from shanbay.com...')
+    try:
+        book_soup = BS(s.get(url).content, 'lxml')
+        book_name = book_soup.find('div', class_='wordbook-title').a.string
+        if not book_name:
+            print('Didn\'t find the book, check the url and try again')
+            exit(-1)
+        print('Book name:  ' + book_name)
+    except requests.exceptions.RequestException as e:
+        print(e)
+        exit(0)
+
+    # book exists alreay
+    local_path = '.\\Books\\{}'.format(book_name)  # book folder
+    if not os.path.exists(local_path):
+        os.makedirs(local_path)
+    book_file = book_name + '.json'
+    if book_file in os.listdir(local_path):
+        print('It is already saved. Read from local file...')
+        with open(os.path.join(local_path, book_file), 'r') as f:
+            book = json.load(f)
+        vocabulary = set(itertools.chain(*book))
+        print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
+        return book, vocabulary
+
+    # no local file, get book from shanbay
+    book = []
+    book_chapters = book_soup.find_all('td', class_='wordbook-wordlist-name')  # containers of wordlists
+    print('\nThere are {} word lists:'.format(len(book_chapters)))
+    for i in book_chapters:
+        print(i.a.string)
+
+    print('\n-------fetching----------')
+    for i in book_chapters:
+        wordlist = []
+        print('doing with wordlist: {} ...'.format(i.a.string))
+        wordlist_url = 'https://www.shanbay.com{}/'.format(i.a.get('href'))
+        try:
+            first_page_soup = BS(s.get(wordlist_url).content, 'lxml')
+        except requests.exceptions.RequestException as e:
+            print(e)
+            exit(1)
+        wordlist += [tr.td.string for tr in first_page_soup.find_all('tr', class_='row')]
+
+        # deal with other subpages, avoid reading the pagination
+        for page_count in range(2, 1000):
+            url_update = wordlist_url + '?page={}'.format(page_count)
+            page_soup = BS(s.get(url_update).content, 'lxml')
+            temp = [tr.td.string for tr in page_soup.find_all('tr', class_='row')]
+            if temp:  # until no more words
+                wordlist += temp
+            else:
+                break
+        book.append(wordlist)
+        print('added {} words into the vocabulary\n'.format(len(wordlist)))
+
+    print('******finished**********')
+
+    # save the book
+    vocabulary = set(itertools.chain(*book))
+    with open(os.path.join(local_path, book_file), 'w') as f:
+        json.dump(book, f)
+        print('The book is saved at {}.'.format(local_path))
+        print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
+    return book, set(itertools.chain(*book))
 
 
 
