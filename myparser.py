@@ -32,7 +32,7 @@ def get_words_from_ass_2(path, codec='utf-16-le'):
                 seg = line[line.rfind('}') + 1:len(line) - 1].lower()
                 # seg = ''.join([i for i in seg if i == ' ' or i in string.ascii_lowercase])
                 # accept ', e.g. i'm
-                seg = ''.join([i for i in seg if i in [' ', '\''] or i in string.ascii_lowercase])
+                seg = ''.join([i for i in seg if i == ' ' or i in string.ascii_lowercase])
                 pieces = seg.split(' ')
                 for piece in pieces:
                     # if piece != '':
@@ -50,11 +50,12 @@ def get_words_from_ass_2(path, codec='utf-16-le'):
     return extracted, notword
 
 
-def get_book_local(book_name, subtitle_path=None):
+def get_book_local(book_name, subtitle_path, codec='utf-8'):
     """
     get the vocabulary of a book locally from a list of ass files
     :param book_name:
     :param subtitle_path:
+    :param codec:
     :return:
     """
     obsolete = []
@@ -66,24 +67,26 @@ def get_book_local(book_name, subtitle_path=None):
     print('Got {} obsolete words from {}'.format(len(obsolete), exclusion_path))
 
     # if subtitle path is not provided, use default dropbox directory
-    if not subtitle_path:
-        dropbox_info_path = os.path.join(os.environ['LOCALAPPDATA'], 'Dropbox\info.json')
-        with open(dropbox_info_path, 'r') as f:
-            d_info = json.load(f)
-        subtitle_path = os.path.join(d_info['personal']['path'], 'Others\\Subtitles\\{}'.format(book_name))
+    # if not subtitle_path:
+    #     dropbox_info_path = os.path.join(os.environ['LOCALAPPDATA'], 'Dropbox\info.json')
+    #     with open(dropbox_info_path, 'r') as f:
+    #         d_info = json.load(f)
+    #     subtitle_path = os.path.join(d_info['personal']['path'], 'Others\\Subtitles\\{}'.format(book_name))
     print('The subtitle is in {}'.format(subtitle_path))
 
     total = set()
+    book = []
     for ass in os.listdir(subtitle_path):
-        temp, _ = get_words_from_ass_2(os.path.join(subtitle_path, ass), codec='utf-8')
-        temp -= obsolete
+        temp, _ = get_words_from_ass_2(os.path.join(subtitle_path, ass), codec=codec)
+        temp -= obsolete  # temp is a set of words
         temp -= total
         total = total.union(temp)
+        book.append(list(temp))
         print('Added {} words from {} \n'.format(len(temp), ass))
 
-    with open('.\\Books\\{}-local.json'.format(book_name), 'w') as f:
-        json.dump(list(total), f)
-    return total
+    with open('.\\Books\\{}\\{}-local.json'.format(book_name, book_name), 'w') as f:
+        json.dump(book, f)
+    return book, total
 
 
 
