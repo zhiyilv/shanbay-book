@@ -3,6 +3,7 @@ import re
 import sys
 import os
 import json
+import itertools
 # from selenium import webdriver
 
 
@@ -34,15 +35,6 @@ def login(usr=None, psw=None):
     else:
         print('failed logging in, check manually')
         return None
-
-#
-# def login():
-#     cl = webdriver.Chrome()
-#     cl.get('https://www.shanbay.com/web/account/login/')
-#     cl.find_element_by_name('username').send_keys('...')
-#     cl.find_element_by_name('password').send_keys('...')
-#     cl.find_element_by_css_selector('button.login-button').click()
-#     return cl.get_cookies()
 
 
 def get_wordlists(book_id, shanbay_session=None, require_description=False):
@@ -103,9 +95,12 @@ def get_book(book_id, s=None, local_path='.\\Books', url=None):
         print('Book name:  ' + book_name)
     except requests.exceptions.RequestException as e:
         print(e)
-        sys.exit(0)
+        exit(0)
 
     # book exists alreay
+    local_path = os.path.join(local_path, book_name)
+    if not os.path.exists(local_path):
+        os.makedirs(local_path)
     book_file = book_name + '.json'
     if book_file in os.listdir(local_path):
         print('It is already saved. Read from local file')
@@ -186,9 +181,12 @@ def get_book2(book_id, s=None, local_path='.\\Books', url=None):
         print('Book name:  ' + book_name)
     except requests.exceptions.RequestException as e:
         print(e)
-        sys.exit(0)
+        exit(0)
 
     # book exists alreay
+    local_path = os.path.join(local_path, book_name)  # book folder
+    if not os.path.exists(local_path):
+        os.makedirs(local_path)
     book_file = book_name + '.json'
     if book_file in os.listdir(local_path):
         print('It is already saved. Read from local file')
@@ -278,13 +276,56 @@ def add_word(wordlist_id, word, s=None):
         return 0
 
 
-def get_dumb(book_id, local_total, s=None):
+# def update_dumb2(book_id, local_total, s=None):
+#     """
+#     after manually deleting some words, compare the online version with local version
+#     add those dumb words into the dumb file
+#     :param book_id:
+#     :param local_total: should be a set
+#     :param s:
+#     :return:
+#     """
+#     dumb_path = '.\\Books\\Exclusion\\dumb.json'
+#     if os.path.exists(dumb_path):
+#         with open(dumb_path, 'r') as f:
+#             dumb = json.load(f)
+#             dumb = set(dumb)
+#     else:
+#         dumb = set()
+#
+#     _, _, v = get_book(book_id, s=s)
+#     v = set(v)
+#     print('There are {} words online'.format(len(v)))
+#     dumb_ext = local_total - v
+#     print('Found {} words are dumb'.format(len(dumb_ext)))
+#     print(dumb_ext)
+#     dumb = dumb.union(dumb_ext)
+#
+#     dumb = list(dumb)
+#     with open(dumb_path, 'w') as f:
+#         json.dump(dumb, f)
+#     print('Added them into local dumb words')
+
+
+def get_dumb(book_name):
     """
-    after manually deleting some words, compare the online version with local version
-    add those dumb words into the dumb file
-    :param book_id:
-    :param local_total:
-    :param s:
+    make sure both online and local version of word book is store correctly
+    :param book_name:
+    :return:
+    """
+    with open('.\\Books\\{}\\{}.json'.format(book_name, book_name), 'r') as f:
+        book_online = json.load(f)
+        book_online = set(itertools.chain(*book_online))
+    with open('.\\Books\\{}\\{}-local.json'.format(book_name, book_name), 'r') as f:
+        book_local = json.load(f)
+        book_local = set(itertools.chain(*book_local))
+    return book_local - book_online
+
+
+def update_dumb(dumb_ext):
+    """
+    given a dumb extension, update the local dumb file
+    :param dumb_ext:
     :return:
     """
     dumb_path = '.\\Books\\Exclusion\\dumb.json'
@@ -295,18 +336,11 @@ def get_dumb(book_id, local_total, s=None):
     else:
         dumb = set()
 
-    _, _, v = get_book(book_id, s=s)
-    v = set(v)
-    print('There are {} words online'.format(len(v)))
-    dumb_ext = local_total - v
-    print('Found {} words are dumb'.format(len(dumb_ext)))
-    print(dumb_ext)
     dumb = dumb.union(dumb_ext)
-
-    dumb = list(dumb)
     with open(dumb_path, 'w') as f:
-        json.dump(dumb, f)
-    print('Added them into local dumb words')
+        json.dump(list(dumb), f)
+    print('Added {} words into local dumb file.'.format(len(dumb_ext)))
+    return dumb
 
 
 
