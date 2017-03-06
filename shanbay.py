@@ -5,13 +5,9 @@ import os
 import json
 import itertools
 from bs4 import BeautifulSoup as BS
+import configparser
 # from selenium import webdriver
 
-
-# def show_cookies(s):
-#     for i in s.cookies.keys():
-#         print(i+': '+s.cookies[i])
-#
 
 def login(usr=None, psw=None):
     s = requests.session()
@@ -325,7 +321,10 @@ def get_dumb(book_name):
     with open('.\\Books\\{}\\{}-local.json'.format(book_name, book_name), 'r') as f:
         book_local = json.load(f)
         book_local = set(itertools.chain(*book_local))
-    return book_local - book_online
+    d = book_local - book_online
+    print('There are {} words online and {} words locally, got {} dumb words.'
+          .format(len(book_online), len(book_local), len(d)))
+    return d
 
 
 def update_dumb(dumb_ext):
@@ -346,15 +345,17 @@ def update_dumb(dumb_ext):
     with open(dumb_path, 'w') as f:
         json.dump(list(dumb), f)
     print('Added {} words into local dumb file.'.format(len(dumb_ext)))
+    print('There are {} dumb words in total'.format(len(dumb)))
     return dumb
 
 
-def fetch_book_by_id(book_id, s=None):
+def fetch_book_by_id(book_id, s=None, local_path=None):
     """
     provide a book id, get the book from shanbay.com
     separated by wordlists
     :param book_id:
     :param s:
+    :param local_path:
     :return: book(chapter separated), vocabulary(a set of words)
     """
     url = 'https://www.shanbay.com/wordbook/{}/'.format(book_id)
@@ -374,7 +375,8 @@ def fetch_book_by_id(book_id, s=None):
         exit(0)
 
     # book exists alreay
-    local_path = '.\\Books\\{}'.format(book_name)  # book folder
+    if not local_path:
+        local_path = '.\\Books\\{}'.format(book_name)  # book folder
     if not os.path.exists(local_path):
         os.makedirs(local_path)
     book_file = book_name + '.json'
