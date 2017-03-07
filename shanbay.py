@@ -20,7 +20,7 @@ class MyBook:
             self.config = dict()
             print('There is no book called {} in config.ini, setup?'.format(book_name))
             if input('y to proceed, others to quit') == 'y':
-                for key in config_all[list(config_all.sections())[0]].keys():  # for all valid keys, ask the input
+                for key in config_all['example'].keys():  # for all valid keys, ask the input
                     self.config[key] = input('{}: '.format(key))
         else:
             self.config = dict(config_all[book_name])
@@ -37,15 +37,17 @@ class MyBook:
         config_all[self.name] = {}
         for key in self.config:
             config_all[self.name][key] = self.config[key]
-        with open('config.ini', 'w') as f:
-            config_all.write(config_all, f)
+        with open('config.ini', 'w', encoding='utf8') as f:
+            config_all.write(f)
 
     def update_config(self, key, val):
         self.config[key] = val
+        if key == 'book_id':
+            self.online_url = 'https://www.shanbay.com/wordbook/{}/'.format(self.config['book_id'])
 
     def show_config(self):
         for key in self.config:
-            print(key + ': ' + self.config[key])
+            print('{}: {}'.format(key, self.config[key]))
 
     def create_folder(self):
         if not os.path.exists(self.folder_dir):
@@ -69,6 +71,7 @@ class MyBook:
             self.create_folder()
             with open(self.poster_dir, 'wb') as f:
                 f.write(res.content)
+            print('Poster is saved at {}.'.format(self.poster_dir))
 
     def fetch_online(self, force=False):
         if not force and os.path.exists(self.online_dir):  # not forced to update, read locally
@@ -89,10 +92,11 @@ class MyBook:
             for i in book_chapters:
                 print(i.a.string)
 
+            print('\nDealing with them:')
             for i in book_chapters:
                 wordlist = []
                 print('doing with wordlist: {} ...'.format(i.a.string))
-                wordlist_url = 'https://www.shanbay.com{}/'.format(i.a.get('href'))
+                wordlist_url = 'https://www.shanbay.com{}'.format(i.a.get('href'))
                 try:
                     first_page_soup = BS(self.connection.get(wordlist_url).content, 'lxml')
                 except requests.exceptions.RequestException as e:
@@ -111,15 +115,15 @@ class MyBook:
                         break
                 book.append(wordlist)
                 print('added {} words into the vocabulary\n'.format(len(wordlist)))
-                print('******finished**********')
+            print('******finished**********')
 
-                # save the book
-                vocabulary = set(itertools.chain(*book))
-                with open(self.online_dir, 'w') as f:
-                    json.dump(book, f)
-                print('The book is saved at {}.'.format(self.online_dir))
-                print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
-                return book, vocabulary
+            # save the book
+            vocabulary = set(itertools.chain(*book))
+            with open(self.online_dir, 'w') as f:
+                json.dump(book, f)
+            print('The book is saved at {}.'.format(self.online_dir))
+            print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
+            return book, vocabulary
 
     def get_local(self, force=False):
         if not force and os.path.exists(self.local_dir):  # not forced to update, read locally
@@ -130,31 +134,40 @@ class MyBook:
             print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
             return book, vocabulary
         else:
-            print('\n----Generating the book: {}, from subtitles in----{}'.format(self.name,
-                                                                                  self.config['subtitle_path']))
             obsolete = []
             exclusion_path = '.\\Books\\Exclusion'
             for d in os.listdir(exclusion_path):
                 with open(os.path.join(exclusion_path, d), 'r') as f:
                     obsolete += json.load(f)  # these books are just stored as a list of words
             obsolete = set(obsolete)
-            print('Got {} obsolete words from {}'.format(len(obsolete), exclusion_path))
+            print('Preparation: got {} obsolete words from {}'.format(len(obsolete), exclusion_path))
 
+            print('\n----Generating the book: {}, from subtitles in----{}'.format(self.name,
+                                                                                  self.config['subtitle_path']))
+            files = os.listdir(self.config['subtitle_path'])
+            print('There are {} subtitles:'.format(len(files)))
+            for ass in files:
+                print(ass)
+
+            print('\ndealing with them:')
             vocabulary = set()
             book = []
-            for ass in os.listdir(self.config['subtitle_path']):
+            for ass in files:
+                print('doing with subtitle: {} ...'.format(ass))
                 temp, _ = get_words_from_ass(os.path.join(self.config['subtitle_path'], ass),
                                              codec=self.config['subtitle_codec'])
                 temp -= obsolete  # temp is a set of words
                 temp -= vocabulary
                 vocabulary = vocabulary.union(temp)
                 book.append(list(temp))
-                print('Added {} words from {} \n'.format(len(temp), ass))
+                print('added {} words into the vocabulary \n'.format(len(temp)))
             print('******finished**********')
 
             # save the book
             with open(self.local_dir, 'w') as f:
                 json.dump(book, f)
+            print('The book is saved at {}.'.format(self.local_dir))
+            print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
             return book, vocabulary
 
 
