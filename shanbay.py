@@ -6,7 +6,149 @@ import json
 import itertools
 from bs4 import BeautifulSoup as BS
 import configparser
-# from selenium import webdriver
+import enchant
+from nltk.stem.wordnet import WordNetLemmatizer
+
+
+class MyBook:
+    def __init__(self, book_name, connection=None):
+        self.name = book_name
+        config_all = configparser.ConfigParser()
+        config_all.read('config.ini', encoding='utf8')
+        if book_name not in config_all:
+            self.config = dict()
+            print('There is no book called {} in config.ini, setup?'.format(book_name))
+            if input('y to proceed, others to quit') == 'y':
+                for key in config_all[list(config_all.sections())[0]].keys():  # for all valid keys, ask the input
+                    self.config[key] = input('{}: '.format(key))
+        else:
+            self.config = dict(config_all[book_name])
+        self.folder_dir = '.\\Books\\{}\\'.format(self.name)
+        self.poster_dir = '.\\Books\\{}\\poster.jpg'.format(self.name)
+        self.local_dir = '.\\Books\\{}\\{}-local.json'.format(self.name, self.name)
+        self.online_dir = '.\\Books\\{}\\{}.json'.format(self.name, self.name)
+        self.connection = connection
+        self.online_url = 'https://www.shanbay.com/wordbook/{}/'.format(self.config['book_id'])  # update when necessary
+
+    def save_config(self):
+        config_all = configparser.ConfigParser()
+        config_all.read('config.ini', encoding='utf8')
+        config_all[self.name] = {}
+        for key in self.config:
+            config_all[self.name][key] = self.config[key]
+        with open('config.ini', 'w') as f:
+            config_all.write(config_all, f)
+
+    def update_config(self, key, val):
+        self.config[key] = val
+
+    def create_folder(self):
+        if not os.path.exists(self.folder_dir):
+            os.makedirs(self.folder_dir)
+
+    def fetch_poster(self):
+        if not os.path.exists(self.poster_dir):
+            url = self.config['url_douban']
+            print('Getting poster url...')
+            movie_page = requests.get(url).content
+            posters_url = BS(movie_page, 'lxml').find('a', class_='nbgnbg')['href']
+            posters_page = requests.get(posters_url).content
+            poster_url = BS(posters_page, 'lxml').find('div', class_='cover').find('a')['href']
+            poster_page = requests.get(poster_url).content
+            pic_url = BS(poster_page, 'lxml').find('a', class_='mainphoto').find('img')['src']
+            print('It is at {}'.format(pic_url))
+            res = requests.get(pic_url)
+
+            self.create_folder()
+            with open(self.poster_dir, 'wb') as f:
+                f.write(res.content)
+
+    def fetch_online(self, force=False):
+        if not force and os.path.exists(self.online_dir):  # not forced to update, read locally
+            print('The book: {} is already saved. Read from local file...'.format(self.name))
+            with open(self.online_dir, 'r') as f:
+                book = json.load(f)
+            vocabulary = set(itertools.chain(*book))
+            print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
+            return book, vocabulary
+        else:  # no local file, fetch from shanbay.com
+            print('\n----fetching the book: {}, id: {} from shanbay.com----'.format(self.name, self.config['book_id']))
+            if not self.connection:
+                self.connection = login(self.config['shanbay_usr'], self.config['shanbay_psw'])
+            book_soup = BS(self.connection.get(self.online_url).content, 'lxml')
+            book = []
+            book_chapters = book_soup.find_all('td', class_='wordbook-wordlist-name')  # containers of wordlists
+            print('\nThere are {} word lists:'.format(len(book_chapters)))
+            for i in book_chapters:
+                print(i.a.string)
+
+            for i in book_chapters:
+                wordlist = []
+                print('doing with wordlist: {} ...'.format(i.a.string))
+                wordlist_url = 'https://www.shanbay.com{}/'.format(i.a.get('href'))
+                try:
+                    first_page_soup = BS(self.connection.get(wordlist_url).content, 'lxml')
+                except requests.exceptions.RequestException as e:
+                    print(e)
+                    exit(1)
+                wordlist += [tr.td.string for tr in first_page_soup.find_all('tr', class_='row')]
+
+                # deal with other sub-pages, avoid reading the pagination
+                for page_count in range(2, 1000):
+                    url_update = wordlist_url + '?page={}'.format(page_count)
+                    page_soup = BS(self.connection.get(url_update).content, 'lxml')
+                    temp = [tr.td.string for tr in page_soup.find_all('tr', class_='row')]
+                    if temp:  # until no more words
+                        wordlist += temp
+                    else:
+                        break
+                book.append(wordlist)
+                print('added {} words into the vocabulary\n'.format(len(wordlist)))
+                print('******finished**********')
+
+                # save the book
+                vocabulary = set(itertools.chain(*book))
+                with open(self.online_dir, 'w') as f:
+                    json.dump(book, f)
+                print('The book is saved at {}.'.format(self.online_dir))
+                print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
+                return book, vocabulary
+
+    def get_local(self, force=False):
+        if not force and os.path.exists(self.local_dir):  # not forced to update, read locally
+            print('The book: {} is already generated. Read from local file...'.format(self.name))
+            with open(self.local_dir, 'r') as f:
+                book = json.load(f)
+            vocabulary = set(itertools.chain(*book))
+            print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
+            return book, vocabulary
+        else:
+            print('\n----Generating the book: {}, from subtitles in----{}'.format(self.name,
+                                                                                  self.config['subtitle_path']))
+            obsolete = []
+            exclusion_path = '.\\Books\\Exclusion'
+            for d in os.listdir(exclusion_path):
+                with open(os.path.join(exclusion_path, d), 'r') as f:
+                    obsolete += json.load(f)  # these books are just stored as a list of words
+            obsolete = set(obsolete)
+            print('Got {} obsolete words from {}'.format(len(obsolete), exclusion_path))
+
+            vocabulary = set()
+            book = []
+            for ass in os.listdir(self.config['subtitle_path']):
+                temp, _ = get_words_from_ass(os.path.join(self.config['subtitle_path'], ass),
+                                             codec=self.config['subtitle_codec'])
+                temp -= obsolete  # temp is a set of words
+                temp -= vocabulary
+                vocabulary = vocabulary.union(temp)
+                book.append(list(temp))
+                print('Added {} words from {} \n'.format(len(temp), ass))
+            print('******finished**********')
+
+            # save the book
+            with open(self.local_dir, 'w') as f:
+                json.dump(book, f)
+            return book, vocabulary
 
 
 def login(usr=None, psw=None):
@@ -430,7 +572,33 @@ def fetch_book_by_id(book_id, s=None, local_path=None):
     return book, set(itertools.chain(*book))
 
 
-
+def get_words_from_ass(path, codec='utf-16-le'):
+    with open(path, 'r', encoding=codec) as f:
+        d = enchant.Dict('en_US')  # to check words
+        lmtzr = WordNetLemmatizer()  # transform words to the basic form
+        extracted = set()
+        notword = set()
+        for line in f:
+            if line.startswith('Dialogue'):
+                seg = line[line.rfind('}') + 1:len(line) - 1].lower()
+                # seg = ''.join([i for i in seg if i == ' ' or i in string.ascii_lowercase])
+                # accept ', e.g. i'm
+                seg = ''.join([i for i in seg if i == ' ' or i in string.ascii_lowercase])
+                pieces = seg.split(' ')
+                for piece in pieces:
+                    # if piece != '':
+                    # only consider words at least 3 characters
+                    if len(piece) > 2:
+                        word1 = lmtzr.lemmatize(piece)  # for noun.
+                        if piece != word1:  # got the basic form
+                            w = word1
+                        else:  # maybe it's a verb, or just not a word
+                            w = lmtzr.lemmatize(piece, 'v')  # if not a word, w is piece itself
+                        if d.check(w):
+                            extracted.add(w)
+                        else:
+                            notword.add(w)
+    return extracted, notword
 
 
 
