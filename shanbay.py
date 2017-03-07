@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup as BS
 import configparser
 import enchant
 from nltk.stem.wordnet import WordNetLemmatizer
+import string
 
 
 class MyBook:
@@ -42,12 +43,18 @@ class MyBook:
     def update_config(self, key, val):
         self.config[key] = val
 
+    def show_config(self):
+        for key in self.config:
+            print(key + ': ' + self.config[key])
+
     def create_folder(self):
         if not os.path.exists(self.folder_dir):
             os.makedirs(self.folder_dir)
 
-    def fetch_poster(self):
-        if not os.path.exists(self.poster_dir):
+    def fetch_poster(self, force=False):
+        if not force and os.path.exists(self.poster_dir):
+            print('Poster already exists. It is at {}.'.format(self.poster_dir))
+        else:
             url = self.config['url_douban']
             print('Getting poster url...')
             movie_page = requests.get(url).content
