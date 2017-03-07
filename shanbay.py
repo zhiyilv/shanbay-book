@@ -170,6 +170,15 @@ class MyBook:
             print('It contains {} word lists and {} words.'.format(len(book), len(vocabulary)))
             return book, vocabulary
 
+    def get_chapter_details(self):
+        t = requests.get(self.config['url_imdb']).text
+        season = re.findall(r'&nbsp;<strong>Season (\d)<', t)[0]
+        titles = re.findall(r'<strong><a href="/title/.*\n?title="(.*?)"', t)
+        synopsis = re.findall(r'itemprop="description">\n*(.*?)\s*</div', t, re.DOTALL)
+        synopsis = [re.sub(r'<.*?>', '', i) for i in synopsis]  # delete labels in synopsis
+
+        return season, titles, synopsis
+
 
 def login(usr=None, psw=None):
     s = requests.session()
