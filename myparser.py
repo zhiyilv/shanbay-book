@@ -89,6 +89,12 @@ def get_book_local(book_name, subtitle_path, codec='utf-8'):
     return book, total
 
 
-
+def get_dropbox_path():
+    # get folder path
+    d_info_path = os.path.join(os.environ['LOCALAPPDATA'], 'Dropbox\info.json')
+    with open(d_info_path, 'r') as f:
+        d_info = json.load(f)
+    # get words from subtitle files
+    return d_info['personal']['path']
 
 
