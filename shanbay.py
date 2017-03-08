@@ -73,6 +73,13 @@ class MyBook:
                 f.write(res.content)
             print('Poster is saved at {}.'.format(self.poster_dir))
 
+    def connect_shanbay(self):
+        if not self.connection:
+            self.connection = login(self.config['shanbay_usr'], self.config['shanbay_psw'])
+            if not self.connection:
+                print('exit')
+                return None
+
     def fetch_online(self, force=False):
         if not force and os.path.exists(self.online_dir):  # not forced to update, read locally
             print('The book: {} is already saved. Read from local file...'.format(self.name))
@@ -83,8 +90,7 @@ class MyBook:
             return book, vocabulary
         else:  # no local file, fetch from shanbay.com
             print('\n----fetching the book: {}, id: {} from shanbay.com----'.format(self.name, self.config['book_id']))
-            if not self.connection:
-                self.connection = login(self.config['shanbay_usr'], self.config['shanbay_psw'])
+            self.connect_shanbay()
             book_soup = BS(self.connection.get(self.online_url).content, 'lxml')
             book = []
             book_chapters = book_soup.find_all('td', class_='wordbook-wordlist-name')  # containers of wordlists
@@ -184,8 +190,7 @@ class MyBook:
         return season, titles, synopsis
 
     def setup_wordlist(self, title, synopsis):
-        if not self.connection:
-            self.connection = login(self.config['shanbay_usr'], self.config['shanbay_psw'])
+        self.connect_shanbay()
         self.connection.headers['Referer'] = 'https://www.shanbay.com/wordbook/{}/'.format(self.config['book_id'])
         url = 'https://www.shanbay.com/api/v1/wordbook/wordlist/'
 
@@ -202,8 +207,7 @@ class MyBook:
             return -1
 
     def fetch_online_wordlists(self):
-        if not self.connection:
-            self.connection = login(self.config['shanbay_usr'], self.config['shanbay_psw'])
+        self.connect_shanbay()
         book_soup = BS(self.connection.get(self.online_url).content, 'lxml')
         existing_chapters = book_soup.find_all('td', class_='wordbook-wordlist-name')
         return [i.a.string for i in existing_chapters], [i.a.get('href') for i in existing_chapters]
