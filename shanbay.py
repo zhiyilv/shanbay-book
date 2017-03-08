@@ -707,7 +707,9 @@ def get_words_from_ass(path, codec='utf-16-le'):
                             notword.add(w)
     return extracted, notword
 
-
-
+if __name__ = '__main__':
+    book_name = '瑞克和莫蒂 第一季 Rick and Morty Season 1'
+    rm1 = MyBook(book_name)
+    rm1.upload()
 
 
