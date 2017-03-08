@@ -145,6 +145,7 @@ class MyBook:
             print('\n----Generating the book: {}, from subtitles in----{}'.format(self.name,
                                                                                   self.config['subtitle_path']))
             files = os.listdir(self.config['subtitle_path'])
+            files.sort(key=lambda x: x[len(self.config['subtitle_start']): len(self.config['subtitle_start'])+2])
             print('There are {} subtitles:'.format(len(files)))
             for ass in files:
                 print(ass)
@@ -173,11 +174,84 @@ class MyBook:
     def get_chapter_details(self):
         t = requests.get(self.config['url_imdb']).text
         season = re.findall(r'&nbsp;<strong>Season (\d)<', t)[0]
+
         titles = re.findall(r'<strong><a href="/title/.*\n?title="(.*?)"', t)
+        titles = ['S{}E{}. {}'.format(season, str(i).zfill(2), titles[i]) for i in range(len(titles))]
+
         synopsis = re.findall(r'itemprop="description">\n*(.*?)\s*</div', t, re.DOTALL)
         synopsis = [re.sub(r'<.*?>', '', i) for i in synopsis]  # delete labels in synopsis
 
         return season, titles, synopsis
+
+    def setup_wordlist(self, title, synopsis):
+        if not self.connection:
+            self.connection = login(self.config['shanbay_usr'], self.config['shanbay_psw'])
+        self.connection.headers['Referer'] = 'https://www.shanbay.com/wordbook/{}/'.format(self.config['book_id'])
+        url = 'https://www.shanbay.com/api/v1/wordbook/wordlist/'
+
+        wordlist_data = {'name': title,
+                         'description': synopsis,
+                         'wordbook_id': int(self.config['book_id']), }
+        try:
+            self.connection.post(url, data=wordlist_data)
+            print('successfully created wordlist: {}'.format(title))
+            print(synopsis)
+            return 1
+        except requests.exceptions.RequestException as e:
+            print(e)
+            return -1
+
+    def fetch_online_wordlists(self):
+        if not self.connection:
+            self.connection = login(self.config['shanbay_usr'], self.config['shanbay_psw'])
+        book_soup = BS(self.connection.get(self.online_url).content, 'lxml')
+        existing_chapters = book_soup.find_all('td', class_='wordbook-wordlist-name')
+        return [i.a.string for i in existing_chapters], [i.a.get('href') for i in existing_chapters]
+
+    def setup_book(self):
+        _, titles, synopsis = self.get_chapter_details()  # prepare wordlists
+        existing_chapters, _ = self.fetch_online_wordlists()
+
+        if existing_chapters:
+            print('There are already {} word lists:'.format(len(existing_chapters)))
+        for i in existing_chapters:
+            print(i)
+
+        for t, s in zip(titles, synopsis):
+            if t not in existing_chapters:
+                self.setup_wordlist(t, s)
+
+        existing_chapters, urls = self.fetch_online_wordlists()
+
+        if len(existing_chapters) == len(titles):
+            print('\n*********The wordbook is all set*************')
+        else:
+            print('XXXXXXXXXXXXXXXXXXXX')
+            print('Something goes wrong. Manually have a check. Returning existing wordlists')
+
+        return existing_chapters, urls
+
+    def upload(self):
+        book, vocabulary = self.get_local()
+        titles, urls = self.setup_book()
+        if len(book) != len(urls):
+            print('Word lists not match, please check manually.')
+            return 0
+
+        for chapter, title, wordlist_url in zip(book, titles, urls):
+            print('dealing with {}'.format(title))
+            wordlist_url = 'https://www.shanbay.com{}'.format(wordlist_url)
+            for word in chapter:
+                word_data = {'id': int(wordlist_url.split('/')[-2]),
+                             'word': word}
+            try:
+                self.connection.post(wordlist_url, data=word_data)
+            except requests.exceptions.RequestException as e:
+                print(e)
+                return -1
+
+            print('added {} words into {}'.format(len(chapter), title))
+        print('\n*************Finished uploading****************')
 
 
 def login(usr=None, psw=None):
@@ -202,11 +276,11 @@ def login(usr=None, psw=None):
     login_data = {'username': usr,
               'password': psw,}
     r = s.put(login_url, data=login_data)
-    if r.status_code == 200:
+    if s.cookies.get('captcha_needed') != 'True':
         print('login successful')
         return s
     else:
-        print('failed logging in, check manually')
+        print('need to input captcha, try other ways')
         return None
 
 
